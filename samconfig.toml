@@ -1,0 +1,11 @@
+# Saved answers for "sam deploy", so the command needs no extra options.
+version = 0.1
+
+[default.global.parameters]
+region = "ap-south-1"            # Asia Pacific (Mumbai)
+
+[default.deploy.parameters]
+stack_name = "second-tap"
+resolve_s3 = true                # SAM makes a bucket for the code package
+capabilities = "CAPABILITY_IAM"  # lets SAM create the function's permissions
+confirm_changeset = false

@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Second Tap: treated water for construction sites</title>
+  <meta name="description" content="Find treated water from apartments near your construction site in Bengaluru, or list your apartment's spare treated water.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/vendor/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#find">
+        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+          <path d="M4 9h13a6 6 0 0 1 6 6v2h-6v-2H4z" fill="#F2C200"/>
+          <rect x="8" y="4" width="4" height="6" rx="1" fill="#F2C200"/>
+          <path d="M20 20c2.4 3 3.6 5 3.6 6.6a3.6 3.6 0 0 1-7.2 0c0-1.6 1.2-3.6 3.6-6.6z" fill="#5FD0D0"/>
+        </svg>
+        <span>Second Tap</span>
+      </a>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#find" data-tab="find">Find water</a>
+        <a href="#list" data-tab="list">List spare water</a>
+        <a href="#wanted" data-tab="wanted">Water wanted</a>
+      </nav>
+    </div>
+    <div class="stripe" aria-hidden="true"></div>
+  </header>
+
+  <main id="main">
+
+    <!-- ============ FIND WATER (construction site) ============ -->
+    <section id="view-find" class="view">
+      <div class="intro">
+        <h1>Treated water for your site, from the apartment next door</h1>
+        <p>Bengaluru sites may not build with drinking water. Apartments nearby treat more water than they can use, and are allowed to sell half of it. Tell us where your site is and we will show who can supply you.</p>
+      </div>
+
+      <div class="split">
+        <div class="col-form">
+          <form id="find-form" class="panel" novalidate>
+            <h2>Your site</h2>
+
+            <div class="field" data-field="location">
+              <label for="find-area">Where is the site?</label>
+              <div class="row">
+                <select id="find-area"><option value="">Choose an area</option></select>
+                <button type="button" class="btn btn-quiet" id="find-gps">Use my location</button>
+              </div>
+              <p class="hint" id="find-loc-status">Or tap the map to mark the exact spot.</p>
+              <p class="error" hidden></p>
+            </div>
+
+            <div class="field" data-field="needKld">
+              <label for="find-need">Water needed each day, in kilolitres (KL)</label>
+              <input id="find-need" type="number" inputmode="decimal" min="1" max="5000" step="1" value="60">
+              <p class="hint" id="find-need-hint"></p>
+              <p class="error" hidden></p>
+            </div>
+
+            <div class="field" data-field="use">
+              <label for="find-use">What is the water for?</label>
+              <select id="find-use"></select>
+              <p class="error" hidden></p>
+            </div>
+
+            <fieldset class="field" data-field="radiusKm">
+              <legend>Search within</legend>
+              <div class="segment">
+                <label><input type="radio" name="radius" value="2"><span>2 km</span></label>
+                <label><input type="radio" name="radius" value="5" checked><span>5 km</span></label>
+                <label><input type="radio" name="radius" value="10"><span>10 km</span></label>
+              </div>
+              <p class="error" hidden></p>
+            </fieldset>
+
+            <details class="more">
+              <summary>Tanker size and cost</summary>
+              <p class="hint">We use these to estimate transport. Change them to match your own tanker.</p>
+              <div class="pair">
+                <div class="field" data-field="tankerKl">
+                  <label for="find-tanker">Tanker size (KL)</label>
+                  <input id="find-tanker" type="number" inputmode="decimal" min="1" max="40" step="1" value="12">
+                  <p class="error" hidden></p>
+                </div>
+                <div class="field" data-field="tripCost">
+                  <label for="find-trip">Cost per trip (₹)</label>
+                  <input id="find-trip" type="number" inputmode="decimal" min="0" max="20000" step="50" value="800">
+                  <p class="error" hidden></p>
+                </div>
+              </div>
+            </details>
+
+            <button class="btn btn-main" type="submit">Find water nearby</button>
+            <p class="form-error error" id="find-error" hidden role="alert"></p>
+          </form>
+
+          <div id="results" aria-live="polite"></div>
+        </div>
+
+        <div class="col-map">
+          <div id="find-map" class="map" role="application" aria-label="Map of apartments with treated water. Tap to set your site location."></div>
+          <ul class="legend">
+            <li><span class="dot dot-site"></span>Your site</li>
+            <li><span class="dot dot-fit"></span>Fit</li>
+            <li><span class="dot dot-check"></span>Check first</li>
+            <li><span class="dot dot-unfit"></span>Not suitable</li>
+            <li><span class="dot dot-plain"></span>Listed</li>
+          </ul>
+          <p class="hint"><a href="#rules">How water is checked</a></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIST SPARE WATER (apartment) ============ -->
+    <section id="view-list" class="view" hidden>
+      <div class="intro">
+        <h1 id="list-title">List your apartment's spare treated water</h1>
+        <p id="list-lead">If your sewage treatment plant makes more water than you use for flushing and gardens, nearby construction sites can take it. Upload your latest lab report and we will fill in the numbers for you.</p>
+      </div>
+
+      <div class="split">
+        <div class="col-form">
+          <div id="manage-bar" aria-live="polite"></div>
+          <form id="list-form" class="panel" novalidate>
+            <h2>Your apartment</h2>
+            <div class="field" data-field="name">
+              <label for="list-name">Apartment or community name</label>
+              <input id="list-name" type="text" maxlength="80" autocomplete="organization">
+              <p class="error" hidden></p>
+            </div>
+            <div class="field" data-field="area">
+              <label for="list-area">Area</label>
+              <input id="list-area" type="text" maxlength="60" list="area-options" placeholder="Start typing, for example Jakkur">
+              <datalist id="area-options"></datalist>
+              <p class="error" hidden></p>
+            </div>
+            <div class="field" data-field="location">
+              <label>Location</label>
+              <div class="row">
+                <button type="button" class="btn btn-quiet" id="list-gps">Use my location</button>
+              </div>
+              <p class="hint" id="list-loc-status">Tap the map to mark your apartment.</p>
+              <p class="error" hidden></p>
+            </div>
+
+            <h2>Your water</h2>
+            <div class="pair">
+              <div class="field" data-field="surplusKld">
+                <label for="list-surplus">Spare water each day (KL)</label>
+                <input id="list-surplus" type="number" inputmode="decimal" min="1" max="5000" step="1">
+                <p class="hint">1 KL is 1,000 litres.</p>
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="pricePerKl">
+                <label for="list-price">Price per KL (₹)</label>
+                <input id="list-price" type="number" inputmode="decimal" min="0" max="500" step="1" value="10">
+                <p class="hint">BWSSB priced its treated water at ₹10 per KL in 2024.</p>
+                <p class="error" hidden></p>
+              </div>
+            </div>
+            <div class="field">
+              <label for="list-delivery">How will buyers collect it?</label>
+              <select id="list-delivery">
+                <option value="pickup">Buyer sends a tanker</option>
+                <option value="pipeline">By pipeline to a neighbouring site</option>
+              </select>
+            </div>
+
+            <h2>Latest lab report</h2>
+            <div class="field" data-field="report">
+              <label for="q-file">Upload the report (PDF or a clear photo)</label>
+              <input id="q-file" type="file" accept="application/pdf,image/jpeg,image/png">
+              <p class="hint" id="report-status" aria-live="polite">We read the numbers from it and fill them in below. Up to 5 MB. Buyers trust listings with a report more.</p>
+              <p class="error" hidden></p>
+            </div>
+            <p class="hint">Check these against your report, or type them in if you have no file.</p>
+            <div class="grid3">
+              <div class="field" data-field="ph">
+                <label for="q-ph">pH</label>
+                <input id="q-ph" type="number" inputmode="decimal" step="0.1" min="0" max="14">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="bod">
+                <label for="q-bod">BOD (mg/L)</label>
+                <input id="q-bod" type="number" inputmode="decimal" step="0.1" min="0">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="cod">
+                <label for="q-cod">COD (mg/L)</label>
+                <input id="q-cod" type="number" inputmode="decimal" step="0.1" min="0">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="tss">
+                <label for="q-tss">Suspended solids (mg/L)</label>
+                <input id="q-tss" type="number" inputmode="decimal" step="0.1" min="0">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="fc">
+                <label for="q-fc">Faecal coliform (MPN/100 ml)</label>
+                <input id="q-fc" type="number" inputmode="decimal" step="1" min="0">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="testDate">
+                <label for="q-date">Test date</label>
+                <input id="q-date" type="date">
+                <p class="error" hidden></p>
+              </div>
+            </div>
+            <p class="hint">These two are needed only if buyers will use the water on concrete. Leave them empty if they were not tested.</p>
+            <div class="pair">
+              <div class="field" data-field="chloride">
+                <label for="q-chloride">Chlorides (mg/L)</label>
+                <input id="q-chloride" type="number" inputmode="decimal" step="1" min="0">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="sulphate">
+                <label for="q-sulphate">Sulphates (mg/L)</label>
+                <input id="q-sulphate" type="number" inputmode="decimal" step="1" min="0">
+                <p class="error" hidden></p>
+              </div>
+            </div>
+            <h2>Who should buyers contact?</h2>
+            <div class="pair">
+              <div class="field" data-field="contactName">
+                <label for="list-contact">Name</label>
+                <input id="list-contact" type="text" maxlength="60" autocomplete="name">
+                <p class="error" hidden></p>
+              </div>
+              <div class="field" data-field="phone">
+                <label for="list-phone">Mobile number</label>
+                <input id="list-phone" type="tel" inputmode="numeric" maxlength="14" autocomplete="tel">
+                <p class="error" hidden></p>
+              </div>
+            </div>
+            <p class="hint">The name and number are shown publicly on your listing so buyers can call.</p>
+
+            <button class="btn btn-main" type="submit">Publish listing</button>
+            <p class="form-error error" id="list-error" hidden role="alert"></p>
+          </form>
+          <div id="list-done" aria-live="polite"></div>
+        </div>
+
+        <div class="col-map">
+          <div id="list-map" class="map" role="application" aria-label="Map. Tap to mark your apartment."></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WATER WANTED (requests from sites) ============ -->
+    <section id="view-wanted" class="view" hidden>
+      <div class="intro">
+        <h1>Construction sites looking for treated water</h1>
+        <p>These sites have asked for treated water. If your apartment is nearby and has water to spare, call them, or list your water so they can find you.</p>
+      </div>
+      <div class="split">
+        <div class="col-form">
+          <div class="panel">
+            <div class="field">
+              <label for="wanted-area">Show the nearest to</label>
+              <select id="wanted-area"><option value="">All of Bengaluru, newest first</option></select>
+            </div>
+            <a class="btn btn-quiet" href="#list">List my spare water</a>
+          </div>
+          <div id="wanted-list" aria-live="polite"></div>
+        </div>
+        <div class="col-map">
+          <div id="wanted-map" class="map" role="application" aria-label="Map of construction sites asking for treated water."></div>
+          <ul class="legend">
+            <li><span class="dot dot-site"></span>Site asking for water</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CLOSE A REQUEST (private link) ============ -->
+    <section id="view-close" class="view" hidden>
+      <div class="intro">
+        <h1>Your water request</h1>
+      </div>
+      <div class="prose" id="close-box" aria-live="polite"></div>
+    </section>
+
+    <!-- ============ HOW WATER IS CHECKED ============ -->
+    <section id="view-rules" class="view" hidden>
+      <div class="intro">
+        <h1>How water is checked</h1>
+        <p>Second Tap compares the numbers on each apartment's lab report with published limits. It is a first screen to save you phone calls. It is not a lab certificate: your site engineer makes the final decision.</p>
+      </div>
+      <div class="prose">
+        <h2>Limits for every use</h2>
+        <p>From the National Green Tribunal's 2019 order on treated sewage.</p>
+        <div class="table-wrap"><table id="rules-baseline"></table></div>
+
+        <h2>Extra limits for concrete curing and mixing</h2>
+        <p>From IS 456:2000, the Indian standard for concrete. Chlorides rust the steel inside reinforced concrete, and sulphates weaken it over time.</p>
+        <div class="table-wrap"><table id="rules-concrete"></table></div>
+
+        <h2>What the three results mean</h2>
+        <ul class="plain">
+          <li><span class="tag tag-fit">Fit</span> Every value needed for that use is reported and within its limit, and the report is recent.</li>
+          <li><span class="tag tag-check">Check first</span> Nothing fails, but something is missing or out of date. Concrete mixing always gets this result, because IS 456 also asks for strength tests.</li>
+          <li><span class="tag tag-unfit">Not suitable</span> At least one value is over its limit.</li>
+        </ul>
+
+        <h2>What we assume</h2>
+        <ul class="plain">
+          <li>Distance is a straight line. The road distance will be longer.</li>
+          <li>A lab report older than <span id="rules-age">90</span> days counts as out of date. That is our own rule, not a regulation.</li>
+          <li>Transport cost uses the tanker size and trip cost you enter. Pipeline listings are costed without tanker trips; laying the pipe is not included.</li>
+          <li>Listings marked "Sample" are made-up examples for demonstration.</li>
+        </ul>
+
+        <h2>How the lab report is used</h2>
+        <ul class="plain">
+          <li>When an apartment uploads its report, an AI model on Amazon Bedrock reads the values so the manager does not have to type them.</li>
+          <li>When the listing is published, the typed numbers are compared with the report. If they disagree, the listing says so and cannot show "Fit" until a buyer has checked.</li>
+          <li>The AI can misread a blurred photo or an unusual layout. Buyers can always open the report itself.</li>
+        </ul>
+
+        <h2>The suggested order</h2>
+        <ul class="plain">
+          <li>When one apartment cannot cover your need, we suggest how much to take from each "Fit" apartment, starting with the lowest cost per KL. It is a sensible starting point, not a guaranteed cheapest answer.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p><a href="#rules">How water is checked</a></p>
+    <p>Second Tap was built for Environmental Hacks, Bharat Builds Tour 2026. Map data © <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> contributors.</p>
+  </footer>
+
+  <script src="/vendor/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Second Tap. Matches spare treated water from apartment sewage treatment
+  plants with nearby construction sites.
+
+# Everything Second Tap needs on AWS is described in this one file:
+#   - a Lambda function  (runs the website and the API)
+#   - an API Gateway     (gives the function a public https address)
+#   - a DynamoDB table   (stores the listings)
+#   - an S3 bucket       (stores lab report files, kept private)
+# It also gives the function permission to ask Amazon Bedrock (AWS's AI
+# service) to read the numbers from an uploaded lab report.
+
+Parameters:
+  ReportReaderModels:
+    Type: String
+    Description: >
+      Bedrock models that read lab reports, tried in this order. Leave empty
+      to switch the AI reader off; sellers then type the numbers themselves.
+    Default: 'global.amazon.nova-2-lite-v1:0,apac.amazon.nova-lite-v1:0'
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 29    # reading a lab report with AI can take several seconds
+
+Resources:
+  ListingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST   # no fixed cost; pay only per read/write
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:        # DynamoDB deletes old requests by itself
+        AttributeName: expiresAt
+        Enabled: true
+
+  ReportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:   # nobody can read the bucket directly
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      CorsConfiguration:                # lets the website upload files to it
+        CorsRules:
+          # Any site may attempt an upload, but it only works with the
+          # short-lived signed link that our own API hands out.
+          - AllowedOrigins: ['*']
+            AllowedMethods: [PUT, GET]
+            AllowedHeaders: ['*']
+            MaxAge: 3000
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:             # caps traffic so nobody can run up usage
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  AppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: app/
+      Handler: src/handler.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ListingsTable
+          REPORTS_BUCKET: !Ref ReportsBucket
+          REPORT_READER_MODELS: !Ref ReportReaderModels
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref ListingsTable }
+        - S3CrudPolicy: { BucketName: !Ref ReportsBucket }
+        - Statement:                    # allow the AI reader to call Bedrock
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: '*'
+      Events:
+        AllRequests:
+          Type: HttpApi                 # every path and method goes to the function
+          Properties:
+            ApiId: !Ref HttpApi
+
+Outputs:
+  SiteUrl:
+    Description: Open this address in a browser. This is your live website.
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  TableName:
+    Description: DynamoDB table holding the listings (show this in your demo video)
+    Value: !Ref ListingsTable
+  BucketName:
+    Description: S3 bucket holding lab reports
+    Value: !Ref ReportsBucket
