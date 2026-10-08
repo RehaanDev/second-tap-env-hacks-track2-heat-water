@@ -7,8 +7,9 @@
 //   4. List spare water   an apartment publishes, edits, pauses or deletes a listing
 //   5. Water wanted       apartments browse requests from sites
 //   6. Close a request    a site closes its request from its private link
-//   7. How water is checked
-//   8. Page switching
+//   7. City view          supply and demand added up, area by area
+//   8. How water is checked
+//   9. Page switching
 
 (function () {
   'use strict';
@@ -506,6 +507,7 @@
       renderWelcome();
     }
     renderWanted();
+    renderCity();
   }
 
   function initFind() {
@@ -520,6 +522,17 @@
     $('#find-need').addEventListener('input', updateNeedHint);
     $('#find-tanker').addEventListener('input', updateNeedHint);
     $('#find-form').addEventListener('submit', submitFind);
+    // One click to see the app working, for first-time visitors.
+    $('#find-example').addEventListener('click', () => {
+      const jakkur = AREAS.find((a) => a.name === 'Jakkur');
+      areaSelect.value = jakkur.name;
+      setFindLocation(jakkur, 'area', jakkur.name);
+      $('#find-need').value = 150;
+      $('#find-use').value = 'dust';
+      $('input[name="radius"][value="5"]').checked = true;
+      updateNeedHint();
+      $('#find-form').requestSubmit();
+    });
     updateNeedHint();
   }
 
@@ -673,6 +686,7 @@
     setReportStatus(REPORT_HINT);
     $('#list-loc-status').textContent = 'Tap the map to mark your apartment.';
     $('#list-done').replaceChildren();
+    updateEarnings();
   }
 
   function renderPublished({ supply, fitByUse, manageToken }) {
@@ -780,6 +794,7 @@
     $('#list-contact').value = supply.contactName;
     $('#list-phone').value = supply.phone;
     setListLocation({ lat: supply.lat, lng: supply.lng }, 'saved');
+    updateEarnings();
     setReportStatus(supply.hasReport ? 'A lab report is already attached. Choose a file only if you want to replace it.' : REPORT_HINT);
   }
 
@@ -843,6 +858,16 @@
       if (field && e.target.type !== 'file') field.classList.remove('filled');
     });
     $('#list-form').addEventListener('submit', submitList);
+    $('#list-surplus').addEventListener('input', updateEarnings);
+    $('#list-price').addEventListener('input', updateEarnings);
+  }
+
+  // Shows what the spare water could earn, as the manager types.
+  function updateEarnings() {
+    const kl = Number($('#list-surplus').value);
+    const price = Number($('#list-price').value);
+    $('#list-earn').textContent =
+      kl > 0 && price > 0 ? `Selling all ${fmt(kl)} KL a day at this price would bring in about ${rupees(Math.round(kl * price * 30))} a month.` : '';
   }
 
   // =====================================================================
@@ -934,7 +959,79 @@
   }
 
   // =====================================================================
-  // 7. HOW WATER IS CHECKED
+  // 7. CITY VIEW
+  // =====================================================================
+  const city = { map: null };
+  const AREA_REACH_KM = 6; // a record further than this from every area centre is "Elsewhere"
+
+  function nearestArea(record) {
+    let best = null;
+    for (const area of AREAS) {
+      const km = distanceKm(area, record);
+      if (!best || km < best.km) best = { name: area.name, km };
+    }
+    return best && best.km <= AREA_REACH_KM ? best.name : 'Elsewhere';
+  }
+
+  // Adds up spare water and wanted water for each area.
+  function cityRows(supplies, requests) {
+    const rows = new Map();
+    const row = (name) => rows.get(name) || rows.set(name, { name, spare: 0, wanted: 0 }).get(name);
+    for (const s of supplies) row(nearestArea(s)).spare += s.surplusKld;
+    for (const r of requests) row(nearestArea(r)).wanted += r.needKld;
+    return [...rows.values()]
+      .map((r) => ({ ...r, matched: Math.min(r.spare, r.wanted) }))
+      .sort((a, b) => b.matched - a.matched || b.spare + b.wanted - (a.spare + a.wanted));
+  }
+
+  function cityResult(r) {
+    if (r.matched === 0) return h('span', { class: 'r-none' }, r.spare > 0 ? 'No site nearby is asking yet' : 'No apartment nearby has listed yet');
+    const left = r.spare - r.wanted;
+    return [h('span', { class: 'r-match' }, `${fmt(r.matched)} KL can be matched`),
+      left > 0 ? `, ${fmt(left)} KL still spare` : left < 0 ? `, ${fmt(-left)} KL still needed` : ''];
+  }
+
+  function renderCity() {
+    const { supplies, requests } = find;
+    const rows = cityRows(supplies, requests);
+    const spare = supplies.reduce((sum, s) => sum + s.surplusKld, 0);
+    const wantedKl = requests.reduce((sum, r) => sum + r.needKld, 0);
+    const matched = rows.reduce((sum, r) => sum + r.matched, 0);
+
+    $('#city-summary').replaceChildren(h('div', { class: 'summary' },
+      h('h2', null, 'Bengaluru today'),
+      h('ul', { class: 'city-facts' },
+        h('li', null, h('b', null, `${fmt(spare)} KL`), `of spare treated water a day, listed by ${plural(supplies.length, 'apartment', 'apartments')}`),
+        h('li', null, h('b', null, `${fmt(wantedKl)} KL`), `a day wanted by ${plural(requests.length, 'site', 'sites')}`),
+        h('li', { class: 'key' }, h('b', null, `${fmt(matched)} KL`), `a day could be matched inside the same area, keeping ${fmt(matched * 1000)} litres of fresh water in the ground every day`))));
+
+    $('#city-table').replaceChildren(
+      h('thead', null, h('tr', null, h('th', null, 'Area'), h('th', { class: 'num' }, 'Spare'), h('th', { class: 'num' }, 'Wanted'), h('th', null, 'What that means'))),
+      h('tbody', null, rows.map((r) => h('tr', null,
+        h('td', null, r.name), h('td', { class: 'num' }, fmt(r.spare)), h('td', { class: 'num' }, fmt(r.wanted)), h('td', null, cityResult(r))))));
+
+    const samples = supplies.some((s) => s.sample) || requests.some((r) => r.sample);
+    $('#city-note').textContent =
+      'Figures are in kilolitres (KL) a day. Each listing and request is counted under the nearest area centre. This compares volumes only: each match still depends on the water suiting the work.' +
+      (samples ? ' These totals include the sample listings and requests.' : '');
+
+    if (city.map) {
+      city.map.layer.clearLayers();
+      for (const s of supplies) {
+        L.circleMarker([s.lat, s.lng], { radius: 8, color: '#ffffff', weight: 2, fillColor: VERDICT_COLOUR.plain, fillOpacity: 1 })
+          .bindPopup(h('div', null, h('strong', null, s.name), h('br'), `${s.area}, ${fmt(s.surplusKld)} KL a day spare`))
+          .addTo(city.map.layer);
+      }
+      for (const r of requests) {
+        L.marker([r.lat, r.lng], { icon: city.map.squareIcon(), keyboard: false })
+          .bindPopup(h('div', null, h('strong', null, r.siteName), h('br'), `${r.area}, needs ${fmt(r.needKld)} KL a day`))
+          .addTo(city.map.layer);
+      }
+    }
+  }
+
+  // =====================================================================
+  // 8. HOW WATER IS CHECKED
   // =====================================================================
   function limitsTable(table, limits) {
     const range = (l) => [l.min !== undefined ? `at least ${l.min}` : null, l.max !== undefined ? `at most ${fmt(l.max)}` : null].filter(Boolean).join(', ');
@@ -956,11 +1053,11 @@
   }
 
   // =====================================================================
-  // 8. PAGE SWITCHING
+  // 9. PAGE SWITCHING
   // =====================================================================
   // The part of the address after "#" picks the screen, for example
   // "#list" or "#manage?id=...&token=...".
-  const VIEWS = { find: 'find', list: 'list', manage: 'list', wanted: 'wanted', close: 'close', rules: 'rules' };
+  const VIEWS = { find: 'find', list: 'list', manage: 'list', wanted: 'wanted', city: 'city', close: 'close', rules: 'rules' };
 
   function showView() {
     const [rawName, query = ''] = location.hash.slice(1).split('?');
@@ -981,12 +1078,15 @@
     if (section === 'find' && find.map) find.map.refresh();
     if (section === 'list' && list.map) list.map.refresh();
     if (section === 'wanted' && wanted.map) wanted.map.refresh();
+    if (section === 'city' && city.map) city.map.refresh();
+    $('#how').hidden = section !== 'find';
     window.scrollTo(0, 0);
   }
 
   initFind();
   initList();
   initWanted();
+  city.map = makeMap('city-map');
   window.addEventListener('hashchange', showView);
   // Load the settings first, because several screens need the list of uses.
   loadConfig()

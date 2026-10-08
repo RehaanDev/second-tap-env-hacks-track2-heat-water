@@ -35,6 +35,7 @@ const server = http.createServer(async (req, res) => {
 
   const event = {
     rawPath: url.pathname,
+    headers: { host: req.headers.host },
     queryStringParameters: Object.fromEntries(url.searchParams),
     requestContext: { http: { method: req.method } },
     body: body.length ? body.toString('base64') : undefined,

@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Second Tap: treated water for construction sites</title>
   <meta name="description" content="Find treated water from apartments near your construction site in Bengaluru, or list your apartment's spare treated water.">
+  <meta name="theme-color" content="#17262b">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Second Tap">
+  <meta property="og:title" content="Second Tap: treated water for construction sites">
+  <meta property="og:description" content="Apartments in Bengaluru pour treated water down the drain while construction sites nearby pump groundwater. Second Tap matches them.">
+  <meta property="og:url" content="__ORIGIN__/">
+  <meta property="og:image" content="__ORIGIN__/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/leaflet.css">
   <link rel="stylesheet" href="/styles.css">
@@ -24,8 +34,9 @@
       </a>
       <nav class="tabs" aria-label="Sections">
         <a href="#find" data-tab="find">Find water</a>
-        <a href="#list" data-tab="list">List spare water</a>
-        <a href="#wanted" data-tab="wanted">Water wanted</a>
+        <a href="#list" data-tab="list">List <span class="wide">spare </span>water</a>
+        <a href="#wanted" data-tab="wanted"><span class="wide">Water </span><span class="cap">wanted</span></a>
+        <a href="#city" data-tab="city">City view</a>
       </nav>
     </div>
     <div class="stripe" aria-hidden="true"></div>
@@ -96,6 +107,7 @@
             </details>
 
             <button class="btn btn-main" type="submit">Find water nearby</button>
+            <button class="btn btn-text" type="button" id="find-example">Show me an example search</button>
             <p class="form-error error" id="find-error" hidden role="alert"></p>
           </form>
 
@@ -114,6 +126,30 @@
           <p class="hint"><a href="#rules">How water is checked</a></p>
         </div>
       </div>
+    </section>
+
+    <!-- shown under the Find water screen -->
+    <section id="how" class="how">
+      <h2>How Second Tap works</h2>
+      <div class="how-grid">
+        <div>
+          <h3>If you run a construction site</h3>
+          <ol>
+            <li>Mark your site and say how much water you need, and what for.</li>
+            <li>See which apartments nearby have water that suits that work, and what it will cost each day.</li>
+            <li>Call the apartment, or post your request and let them call you.</li>
+          </ol>
+        </div>
+        <div>
+          <h3>If you manage an apartment</h3>
+          <ol>
+            <li>Upload your treatment plant's latest lab report. We read the numbers for you.</li>
+            <li>Say how much water you have spare each day, and your price.</li>
+            <li>Sites nearby find you. Update or pause your listing any time from your private link.</li>
+          </ol>
+        </div>
+      </div>
+      <p class="how-why">Every kilolitre matched is 1,000 litres of fresh water that stays in the ground.</p>
     </section>
 
     <!-- ============ LIST SPARE WATER (apartment) ============ -->
@@ -160,6 +196,7 @@
                 <label for="list-price">Price per KL (₹)</label>
                 <input id="list-price" type="number" inputmode="decimal" min="0" max="500" step="1" value="10">
                 <p class="hint">BWSSB priced its treated water at ₹10 per KL in 2024.</p>
+                <p class="hint earn" id="list-earn" aria-live="polite"></p>
                 <p class="error" hidden></p>
               </div>
             </div>
@@ -271,6 +308,28 @@
         <div class="col-map">
           <div id="wanted-map" class="map" role="application" aria-label="Map of construction sites asking for treated water."></div>
           <ul class="legend">
+            <li><span class="dot dot-site"></span>Site asking for water</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CITY VIEW (supply and demand, area by area) ============ -->
+    <section id="view-city" class="view" hidden>
+      <div class="intro">
+        <h1>Where the water is, and where it is wanted</h1>
+        <p>Treated water and the sites that need it are often only a few streets apart. This view puts every listing and every request on one map, and adds them up area by area, so it is clear where matching, or a short pipeline, would save the most fresh water.</p>
+      </div>
+      <div class="split">
+        <div class="col-form">
+          <div id="city-summary" aria-live="polite"></div>
+          <div class="table-wrap city-table"><table id="city-table"></table></div>
+          <p class="hint" id="city-note"></p>
+        </div>
+        <div class="col-map">
+          <div id="city-map" class="map" role="application" aria-label="Map of apartments with spare treated water and sites asking for it."></div>
+          <ul class="legend">
+            <li><span class="dot dot-plain"></span>Apartment with spare water</li>
             <li><span class="dot dot-site"></span>Site asking for water</li>
           </ul>
         </div>

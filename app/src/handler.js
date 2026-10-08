@@ -20,23 +20,35 @@ const TYPES = {
   '.svg': 'image/svg+xml',
   '.txt': 'text/plain; charset=utf-8',
   '.woff2': 'font/woff2',
+  '.png': 'image/png',
 };
-const BINARY = new Set(['.woff2']);
+const BINARY = new Set(['.woff2', '.png']);
 
 const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
 };
 
-async function serveFile(urlPath) {
+// The site's own address, for example https://abc123.execute-api.ap-south-1.amazonaws.com.
+// Link previews (WhatsApp, LinkedIn) need full addresses, so the home page
+// has this filled in as it is served.
+function siteOrigin(event) {
+  const safe = (host) => (typeof host === 'string' && /^[a-z0-9.:-]{1,200}$/i.test(host) ? host : null);
+  const awsHost = safe(event.requestContext?.domainName);
+  if (awsHost) return `https://${awsHost}`;
+  return `http://${safe(event.headers?.host) ?? 'localhost:3000'}`;
+}
+
+async function serveFile(urlPath, event) {
   const relative = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, relative));
   const ext = path.extname(file);
   // Never serve anything outside the public folder.
   if (!file.startsWith(PUBLIC_DIR + path.sep) || !TYPES[ext]) return notFound();
   try {
-    const data = await fs.readFile(file);
+    let data = await fs.readFile(file);
     const isBinary = BINARY.has(ext);
+    if (relative === 'index.html') data = Buffer.from(data.toString('utf8').replaceAll('__ORIGIN__', siteOrigin(event)));
     return {
       statusCode: 200,
       headers: {
@@ -71,7 +83,7 @@ export async function handler(event) {
 
   if (!urlPath.startsWith('/api/')) {
     if (method !== 'GET' && method !== 'HEAD') return json(405, { message: 'Method not allowed.' });
-    return serveFile(urlPath);
+    return serveFile(urlPath, event);
   }
 
   const raw = event.body ? Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8') : null;

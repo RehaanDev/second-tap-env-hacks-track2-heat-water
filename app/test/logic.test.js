@@ -288,3 +288,16 @@ test('website files are served, and nothing outside the public folder', async ()
   assert.equal((await call('GET', '/../src/handler.js')).statusCode, 404);
   assert.equal((await call('GET', '/../package.json')).statusCode, 404);
 });
+
+test('home page gets its own address filled in for link previews, and bad hosts are ignored', async () => {
+  const serve = async (extra) => (await handler({ rawPath: '/', requestContext: { http: { method: 'GET' } }, ...extra })).body;
+  const onAws = await serve({ requestContext: { http: { method: 'GET' }, domainName: 'abc123.execute-api.ap-south-1.amazonaws.com' } });
+  assert.match(onAws, /og:image" content="https:\/\/abc123\.execute-api\.ap-south-1\.amazonaws\.com\/og\.png"/);
+  assert.equal(onAws.includes('__ORIGIN__'), false);
+  const attack = await serve({ headers: { host: 'evil.example"><script>alert(1)</script>' } });
+  assert.equal(attack.includes('<script>alert(1)'), false);
+  assert.match(attack, /content="http:\/\/localhost:3000\/og\.png"/);
+  const image = await call('GET', '/og.png');
+  assert.equal(image.headers['content-type'], 'image/png');
+  assert.equal(image.isBase64Encoded, true);
+});

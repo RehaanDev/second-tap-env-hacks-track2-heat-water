@@ -4,6 +4,11 @@
 
 Built for Environmental Hacks (Bharat Builds Tour 2026), Track 02: Heat and Water.
 
+- **Live site:** _add your SiteUrl here after deploying_
+- **Demo video:** _add your YouTube link here_
+
+![A search from Jakkur: three apartments can supply the site, with a suggested order and daily cost](docs/screenshots/search-results.png)
+
 ## The problem
 
 - Bengaluru has thousands of apartment sewage treatment plants. Since 2024 apartments
@@ -40,6 +45,29 @@ left in the ground.
 4. Post the request publicly, so apartments can call the site. It closes after
    30 days, or sooner from the site's private link.
 
+**For the city**
+
+The **City view** puts every listing and every request on one map and adds them
+up area by area, showing where matching, or a short pipeline, would save the most
+fresh water.
+
+| The form fills itself in from the lab report | Supply and demand, area by area |
+| --- | --- |
+| ![Lab values filled in from an uploaded report, on a phone](docs/screenshots/report-autofill.png) | ![City view: spare and wanted water per area](docs/screenshots/city-view.png) |
+
+## Try it in two minutes
+
+1. Open the site and choose **Show me an example search**. A site in Jakkur asks
+   for 150 KL a day for dust control.
+2. Three sample apartments can supply it. The **suggested order** takes 120 KL by
+   pipeline from one and 30 KL by tanker from another, for ₹4,080 a day. That is
+   150,000 litres of fresh water a day that does not come from a borewell.
+3. One apartment is marked **Not suitable**. Open its lab values to see which
+   limits it fails.
+4. Open **List spare water**, upload a lab report and watch the numbers fill in.
+   Change one number before publishing, and buyers are told it no longer matches
+   the report.
+
 ## Run it on your laptop (no AWS account needed)
 
 You need [Node.js](https://nodejs.org) version 20 or newer. Nothing to install.
@@ -56,7 +84,7 @@ start fresh.
 The AI report reader needs Amazon Bedrock, so on a laptop the report is attached
 and you type the numbers. Everything else works the same.
 
-Run the tests (26 of them):
+Run the tests (27 of them; GitHub also runs them on every push):
 
 ```bash
 cd app
@@ -78,9 +106,26 @@ Follow **[AWS_SETUP.md](AWS_SETUP.md)**. In short: `sam build && sam deploy`.
 | Amazon Bedrock (Amazon Nova) | Reads the values from an uploaded lab report (PDF or photo) |
 | AWS SAM (open source) | Describes and deploys all of the above from `template.yaml` |
 
+```mermaid
+flowchart LR
+  A[Apartment manager<br>phone browser] --> G
+  B[Site supervisor<br>phone browser] --> G
+  G[API Gateway<br>HTTP API, rate limited] --> L[Lambda<br>website + API]
+  L --> D[(DynamoDB<br>listings, requests,<br>report readings)]
+  L --> S[(S3<br>lab reports, private)]
+  L --> R[Bedrock<br>Amazon Nova reads<br>the lab report]
+  A -. uploads report with a<br>short-lived signed link .-> S
+```
+
+One Lambda function serves both the website and the API, so there is a single
+address and nothing to keep in sync. The browser uploads lab reports straight to
+S3, so large files never pass through the function.
+
 ## Project layout
 
 ```
+.github/workflows/   Runs the tests on every push
+docs/screenshots/    Pictures used in this README
 template.yaml        Everything on AWS, described in one file
 samconfig.toml       Saved settings for "sam deploy"
 app/
