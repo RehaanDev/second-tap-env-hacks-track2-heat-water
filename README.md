@@ -4,7 +4,7 @@
 
 Built for Environmental Hacks (Bharat Builds Tour 2026), Track 02: Heat and Water.
 
-- **Live site:** _add your SiteUrl here after deploying_
+- **Runs on:** AWS SAM (open source), locally. See "Run it as a real Lambda function" below.
 - **Demo video:** _add your YouTube link here_
 
 ![A search from Jakkur: three apartments can supply the site, with a suggested order and daily cost](docs/screenshots/search-results.png)
@@ -91,11 +91,44 @@ cd app
 npm test
 ```
 
+## Run it as a real Lambda function with AWS SAM (no AWS account needed)
+
+[AWS SAM](https://github.com/aws/aws-sam-cli) is an AWS open-source tool. It runs
+the same Lambda function on your own computer, inside AWS's Lambda runtime image.
+You need Docker Desktop and the SAM CLI installed.
+
+```bash
+sam build -t template.local.yaml
+sam local start-api --port 3000 --warm-containers LAZY --skip-pull-image
+```
+
+Leave that running. In a second terminal, load the samples:
+
+```bash
+curl -X POST http://localhost:3000/api/seed
+```
+
+Then open http://localhost:3000. Every page request shows up in the first terminal
+as a Lambda invocation. Data lives inside the container, so it resets when you stop
+the command. The very first run needs the image, so leave out `--skip-pull-image`
+that one time.
+
+This is how the demo video was recorded.
+
 ## Put it on AWS
 
-Follow **[AWS_SETUP.md](AWS_SETUP.md)**. In short: `sam build && sam deploy`.
+`template.yaml` describes the full cloud version: Lambda, API Gateway, DynamoDB,
+S3 and Bedrock. Follow **[AWS_SETUP.md](AWS_SETUP.md)**; in short, `sam build && sam deploy`.
+
+The cloud version has not been deployed yet. The AWS account opened for this
+hackathon was still not activated at submission time, so the project was built and
+demonstrated locally with AWS SAM. The DynamoDB code was tested against a local
+DynamoDB emulator, and the Bedrock code against a stand-in server.
 
 ## How AWS is used
+
+Built and run with **AWS SAM** (open source). The table shows what each AWS
+service does in the cloud version described by `template.yaml`.
 
 | Service | Job |
 | --- | --- |
@@ -127,6 +160,7 @@ S3, so large files never pass through the function.
 .github/workflows/   Runs the tests on every push
 docs/screenshots/    Pictures used in this README
 template.yaml        Everything on AWS, described in one file
+template.local.yaml  The same function, run locally with AWS SAM
 samconfig.toml       Saved settings for "sam deploy"
 app/
   server.js          Runs the app on your laptop

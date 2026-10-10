@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Second Tap, local version. Runs the same Lambda function on your own computer with the AWS SAM CLI.
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 29
+
+Resources:
+  AppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: app/
+      Handler: src/handler.handler
+      Environment:
+        Variables:
+          LOCAL_DATA_DIR: /tmp/second-tap
+      Events:
+        HomePage:
+          Type: HttpApi
+          Properties: { Path: /, Method: ANY }
+        EverythingElse:
+          Type: HttpApi
+          Properties: { Path: '/{proxy+}', Method: ANY }
